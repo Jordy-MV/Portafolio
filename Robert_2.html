@@ -1,0 +1,381 @@
+document.addEventListener('DOMContentLoaded', () => {
+    loadVoices();
+    loadModel();
+    document.getElementById('start').addEventListener('click', () => {
+        sayText("Iniciando detección de notas.");
+        startDetection();
+    });
+    document.getElementById('voice-search').addEventListener('click', () => {
+        sayText("Iniciando búsqueda por voz.");
+        voiceSearch();
+    });
+    document.getElementById('start-voice-notes').addEventListener('click', () => {
+        sayText("Iniciando grabación de notas.");
+        startVoiceNotes();
+    });
+});
+
+async function startDetection() {
+    sayText("Preparando para la detección de notas. Por favor, espere...");
+
+    if (!navigator.mediaDevices) {
+        alert('Tu navegador no soporta media devices.');
+        return;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const noteChartCtx = document.getElementById('noteChart').getContext('2d');
+        const noteChart = new Chart(noteChartCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Conteo de notas detectadas',
+                    data: [],
+                    backgroundColor: 'rgba(229, 9, 20, 0.5)',
+                    borderColor: 'rgba(229, 9, 20, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#444'
+                        },
+                        ticks: {
+                            color: '#fff'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: '#444'
+                        },
+                        ticks: {
+                            color: '#fff'
+                        }
+                    }
+                },
+                plugins: {
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'x'
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            mode: 'x'
+                        }
+                    }
+                }
+            }
+        });
+
+        drawVisualisation(analyser, ctx, canvas, bufferLength, dataArray);
+        detectPitch(analyser, dataArray, audioContext.sampleRate, noteChart);
+
+    } catch (error) {
+        console.error('Error al iniciar la detección:', error);
+        alert('No se pudo acceder al micrófono. Asegúrate de haber dado permisos.');
+    }
+}
+
+function drawVisualisation(analyser, ctx, canvas, bufferLength, dataArray) {
+    const draw = () => {
+        requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.fillStyle = 'rgb(0, 0, 0)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let barHeight;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            barHeight = dataArray[i];
+
+            ctx.fillStyle = 'rgb(' + (barHeight + 100) + ',50,50)';
+            ctx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight / 2);
+
+            x += barWidth + 1;
+        }
+    };
+
+    draw();
+}
+
+function detectPitch(analyser, dataArray, sampleRate, noteChart) {
+    const detect = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const frequency = findFundamentalFreq(dataArray, sampleRate);
+        if (frequency !== -1) {
+            const note = noteFromPitch(frequency);
+            document.getElementById('note').textContent = `Nota detectada: ${note}`;
+            sayText(`Nota detectada: ${note}`);
+            updateChart(noteChart, note);
+        } else {
+            document.getElementById('note').textContent = 'No se detectó ninguna nota.';
+        }
+        requestAnimationFrame(detect);
+    };
+
+    detect();
+}
+
+function findFundamentalFreq(dataArray, sampleRate) {
+    let maxVal = -Infinity;
+    let maxIndex = -1;
+
+    for (let i = 0; i < dataArray.length; i++) {
+        if (dataArray[i] > maxVal) {
+            maxVal = dataArray[i];
+            maxIndex = i;
+        }
+    }
+
+    const nyquist = sampleRate / 2;
+    const freq = (maxIndex * nyquist) / dataArray.length;
+    return freq;
+}
+
+function noteFromPitch(frequency) {
+    const noteStrings = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
+    const A4 = 440;
+    const C0 = A4 * Math.pow(2, -4.75); // C0 frequency
+    const h = Math.round(12 * Math.log2(frequency / C0));
+    const octave = Math.floor(h / 12);
+    const n = h % 12;
+    const note = noteStrings[n];
+    return `${note}${octave}`;
+}
+
+function updateChart(chart, note) {
+    const noteIndex = chart.data.labels.indexOf(note);
+    if (noteIndex !== -1) {
+        chart.data.datasets[0].data[noteIndex]++;
+    } else {
+        chart.data.labels.push(note);
+        chart.data.datasets[0].data.push(1);
+    }
+    chart.update();
+}
+
+async function voiceSearch() {
+    sayText("Iniciando búsqueda por voz.");
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'es-ES';
+    recognition.start();
+
+    recognition.onresult = (event) => {
+        const query = event.results[0][0].transcript;
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Error de reconocimiento de voz:', event.error);
+        alert('Error de reconocimiento de voz. Inténtalo de nuevo.');
+    };
+}
+
+function startVoiceNotes() {
+    const startBtn = document.getElementById('start-voice-notes');
+    const notesList = document.getElementById('notes-list');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = 'es-ES';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.start();
+    startBtn.textContent = 'Grabando...';
+    startBtn.classList.add('recording');
+    console.log('Grabación iniciada');
+
+    recognition.addEventListener('result', (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('Texto reconocido: ', transcript);
+        sayText(`Nota grabada: ${transcript}`);
+        addNoteToList(transcript);
+    });
+
+    recognition.addEventListener('speechend', () => {
+        recognition.stop();
+        startBtn.textContent = 'Iniciar Grabación de Notas';
+        startBtn.classList.remove('recording');
+        console.log('Grabación detenida');
+    });
+
+    recognition.addEventListener('error', (event) => {
+        console.error('Error en el reconocimiento: ', event.error);
+        startBtn.textContent = 'Iniciar Grabación de Notas';
+        startBtn.classList.remove('recording');
+    });
+
+    function addNoteToList(text) {
+        const noteItem = document.createElement('li');
+        noteItem.textContent = text;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Eliminar';
+        deleteBtn.classList.add('delete-btn');
+        deleteBtn.addEventListener('click', () => {
+            noteItem.remove();
+            sayText('Nota eliminada');
+        });
+
+        noteItem.appendChild(deleteBtn);
+        notesList.appendChild(noteItem);
+    }
+}
+
+function sayText(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = speechSynthesis.getVoices();
+    const selectedVoice = voices.find(voice => voice.lang === 'es-ES') || voices[0]; // Selecciona una voz en español
+
+    utterance.voice = selectedVoice;
+    utterance.pitch = 1; // Ajusta el tono si es necesario
+    utterance.rate = 1;  // Ajusta la velocidad de habla si es necesario
+    speechSynthesis.speak(utterance);
+}
+
+document.getElementById('note-form').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const errorMessage = document.getElementById('error-message');
+    errorMessage.textContent = ''; // Limpiar el mensaje de error anterior
+
+    const notesInput = document.getElementById('notes').value.trim();
+    const noteRegex = /^([a-z]+#?\d\/[whq86432]{1,2}|rest\/[whq86432]{1,2})(,\s*([a-z]+#?\d\/[whq86432]{1,2}|rest\/[whq86432]{1,2}))*$/i;
+    if (!noteRegex.test(notesInput)) {
+        errorMessage.textContent = 'Formato de nota incorrecto. Use el formato do4/q, re#4/q, mi4/h, fa#4/w, sol4/8, la4/16, si4/32, rest/q';
+        return;
+    }
+
+    const noteMap = {
+        'do': 'c', 're': 'd', 'mi': 'e', 'fa': 'f', 'sol': 'g', 'la': 'a', 'si': 'b'
+    };
+
+    const durationMap = {
+        'w': 4,   // whole
+        'h': 2, // half
+        'q': 1, // quarter
+        '8': 0.5, // eighth
+        '16': 0.25, // sixteenth
+        '32': 0.125 // thirty-second
+    };
+
+    const noteDurations = notesInput.split(',').map(note => note.trim());
+    let currentVoiceNotes = [];
+    let totalDuration = 0;
+    let voices = [];
+
+    for (let note of noteDurations) {
+        const [pitch, duration] = note.split('/');
+        let newNote;
+
+        if (!durationMap[duration]) {
+            errorMessage.textContent = `Duración inválida para la nota ${note}. Use w, h, q, 8, 16, 32.`;
+            return;
+        }
+
+        if (pitch.toLowerCase() === 'rest') {
+            newNote = new VF.StaveNote({
+                clef: 'treble',
+                keys: ['b/4'],
+                duration: duration + 'r'
+            });
+        } else {
+            const noteName = pitch.slice(0, -1).toLowerCase();
+            const octave = pitch.slice(-1);
+            const scientificPitch = noteMap[noteName] + '/' + octave;
+
+            if (!noteMap[noteName] || isNaN(octave)) {
+                errorMessage.textContent = `Nota inválida ${pitch}.`;
+                return;
+            }
+
+            newNote = new VF.StaveNote({
+                clef: 'treble',
+                keys: [scientificPitch],
+                duration: duration
+            });
+
+            if (pitch.includes('#')) {
+                newNote.addAccidental(0, new VF.Accidental('#'));
+            } else if (pitch.includes('b')) {
+                newNote.addAccidental(0, new VF.Accidental('b'));
+            }
+        }
+
+        currentVoiceNotes.push(newNote);
+        totalDuration += durationMap[duration];
+
+        if (totalDuration === 4) {
+            voices.push(new VF.Voice({ num_beats: 4, beat_value: 4 }).addTickables(currentVoiceNotes));
+            currentVoiceNotes = [];
+            totalDuration = 0;
+        } else if (totalDuration > 4) {
+            errorMessage.textContent = 'La duración total de las notas debe ser igual a una medida completa (4/4).';
+            return;
+        }
+    }
+
+    if (totalDuration !== 0) {
+        errorMessage.textContent = 'La duración total de las notas debe ser igual a una medida completa (4/4).';
+        return;
+    }
+
+    const div = document.getElementById('notation');
+    div.innerHTML = '';
+
+    const rendererWidth = Math.max(800, voices.length * 500);
+    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+    renderer.resize(rendererWidth, 1200);
+    const context = renderer.getContext();
+    context.setFont('Arial', 10, '').setBackgroundFillStyle('#fff'); // Fondo blanco para la partitura
+
+    const staveWidth = 500;
+    let x = 200, y = 200;
+
+    const formatter = new VF.Formatter();
+
+    for (let voice of voices) {
+        if (y > 1000) {
+            y = 40;
+            x += staveWidth + 500;
+        }
+
+        const stave = new VF.Stave(x, y, staveWidth);
+        stave.addClef('treble').addTimeSignature('4/4');
+        stave.setContext(context).draw();
+
+        formatter.joinVoices([voice]).format([voice], staveWidth);
+        voice.draw(context, stave);
+
+        y += 120;
+    }
+
+    sayText('Notas agregadas a la partitura.');
+});
