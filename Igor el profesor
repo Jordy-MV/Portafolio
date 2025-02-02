@@ -1,0 +1,167 @@
+import ollama
+import webbrowser
+import os
+import time
+import os.path
+
+# Ruta del archivo donde se guardará el historial de conversación
+HISTORIAL_FILENAME = "historial_conversacion.txt"
+
+ # Función para cargar el historial desde el archivo
+def cargar_historial():
+    if os.path.exists(HISTORIAL_FILENAME):
+      with open(HISTORIAL_FILENAME, 'r', encoding='utf-8') as file:
+             historial = file.read().splitlines()
+      return historial
+    else:
+      return []
+
+# Función para guardar el historial en el archivo
+def guardar_historial(historial):
+     with open(HISTORIAL_FILENAME, 'w', encoding='utf-8') as file:
+         for linea in historial:
+            file.write(linea + '\n')
+
+# Presentación inicial
+os.system("start Presentacion.mp3")
+time.sleep(2.5)
+os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+def chat_with_ollama():
+    print("//Hola Jordy soy Tes!//")
+    
+    # Cargar el historial existente
+    conversation_history = cargar_historial()
+
+    while True:
+        user_input = input("Tú: ")
+
+        if user_input.lower() == 'salir':
+            print("Adiós!")
+            os.system("start Bye.mp3")
+            print("")
+            break
+
+        elif user_input.lower() == "youtube":
+            print("Abriendo YouTube!")
+            os.system("start youtube.mp3")
+            print("")
+            webbrowser.open("https://www.youtube.com")
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "chatgpt":
+            print("Abriendo ChatGPT!")
+            os.system("start GPT.mp3")
+            print("")
+            webbrowser.open("https://chat.openai.com/")
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "google":
+            print("Abriendo Google!")
+            os.system("start Google.mp3")
+            print("")
+            webbrowser.open("https://www.google.com/?hl=es")
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "gmail":
+            print("Abriendo Gmail!")
+            os.system("start Gmail.mp3")
+            webbrowser.open("https://mail.google.com/mail/u/0/?ogbl#inbox")
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "groq":
+            print("Abriendo Groq!")
+            os.system("start groq.mp3")
+            print("")
+            webbrowser.open("https://groq.com/")
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "word":
+            print("Abriendo Microsoft Word...")
+            os.system("start Word.mp3")
+            print("")
+            os.system('start winword')
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "powerpoint":
+            print("Abriendo Microsoft PowerPoint...")
+            os.system("start powerpoint.mp3")
+            print("")
+            os.system('start powerpnt')
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "excel":
+            print("Abriendo Microsoft Excel...")
+            os.system("start Excel.mp3")
+            print("")
+            os.system('start excel')
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "paint":
+            print("Abriendo Microsoft Paint...")
+            os.system("start paint.mp3")
+            print("")
+            os.system('start mspaint')
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "ia":
+            print("Abriendo Archivo 'IA'...")
+            os.system("start Archivo.mp3")
+            print("")
+            os.system('start "" "C:\\Users\\jordy\\OneDrive\\Escritorio\\IA"')
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        elif user_input.lower() == "conver":
+            print("Abriendo Docker...")
+            os.system('start "" "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"')
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+
+        else:
+            # Agregar el input del usuario al historial
+            conversation_history.append(f"Tú: {user_input}")
+
+            # Limitar el tamaño del historial para evitar exceder la capacidad del modelo
+            MAX_HISTORIAL = 20  # Puedes ajustar este número según sea necesario
+            if len(conversation_history) > MAX_HISTORIAL * 2:
+                conversation_history = conversation_history[-MAX_HISTORIAL * 2:]
+
+            # Crear el prompt uniendo el historial
+            prompt = '\n'.join(conversation_history) + '\nTes:'
+
+            try:
+                # Generar respuesta utilizando el historial como contexto
+                # Habilitar el streaming de la respuesta
+                print("Tes: ", end='', flush=True)
+                respuesta_texto = ''
+                for response in ollama.generate(model='llama3.2:1b', prompt=prompt, stream=True):
+                    chunk = response['response']
+                    print(chunk, end='', flush=True)
+                    respuesta_texto += chunk
+
+                print()  # Imprimir una nueva línea al final de la respuesta
+
+                # Agregar la respuesta del modelo al historial
+                conversation_history.append(f"Tes: {respuesta_texto.strip()}")
+
+                # Guardar el historial en el archivo
+                guardar_historial(conversation_history)
+
+            except Exception as e:
+                print("\nOcurrió un error al generar la respuesta:", e)
+                continue
+
+    # Guardar el historial al salir del programa
+    guardar_historial(conversation_history)
+
+chat_with_ollama()
