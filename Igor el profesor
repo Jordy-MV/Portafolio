@@ -1,167 +1,381 @@
+import sys
 import ollama
 import webbrowser
 import os
 import time
 import os.path
 
-# Ruta del archivo donde se guardará el historial de conversación
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QTabWidget, QLabel, QTextEdit, QLineEdit, QPushButton, QSizePolicy, QFrame
+)
+from PyQt5.QtGui import QFont, QPalette, QLinearGradient, QColor, QBrush, QPixmap
+from PyQt5.QtCore import Qt
+
+# ---------------------------
+# Funciones para el historial (memoria)
+# ---------------------------
 HISTORIAL_FILENAME = "historial_conversacion.txt"
 
- # Función para cargar el historial desde el archivo
 def cargar_historial():
     if os.path.exists(HISTORIAL_FILENAME):
-      with open(HISTORIAL_FILENAME, 'r', encoding='utf-8') as file:
-             historial = file.read().splitlines()
-      return historial
+        with open(HISTORIAL_FILENAME, 'r', encoding='utf-8') as file:
+            historial = file.read().splitlines()
+        return historial
     else:
-      return []
+        return []
 
-# Función para guardar el historial en el archivo
 def guardar_historial(historial):
-     with open(HISTORIAL_FILENAME, 'w', encoding='utf-8') as file:
-         for linea in historial:
+    with open(HISTORIAL_FILENAME, 'w', encoding='utf-8') as file:
+        for linea in historial:
             file.write(linea + '\n')
 
-# Presentación inicial
-os.system("start Presentacion.mp3")
-time.sleep(2.5)
-os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+# ---------------------------
+# Clase principal de la aplicación TES
+# ---------------------------
+class TesApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("TEZ")
+        self.setGeometry(100, 100, 1200, 800)
+        # Cargar historial de conversaciones (memoria)
+        self.conversation_history = cargar_historial()
+        self.initUI()
+        # Presentación inicial
+        os.system("start Presentacion.mp3")
+        time.sleep(2.5)
+        os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-def chat_with_ollama():
-    print("//Hola Jordy soy Tes!//")
-    
-    # Cargar el historial existente
-    conversation_history = cargar_historial()
+    def initUI(self):
+        # Widget central y layout principal horizontal
+        central_widget = QWidget()
+        main_layout = QHBoxLayout(central_widget)
+        self.setCentralWidget(central_widget)
 
-    while True:
-        user_input = input("Tú: ")
+        # Área principal con pestañas: Teoría y Práctica
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(self.get_tab_styles())
+        self.tabs.addTab(self.create_tab_content("Contenido de Teoría"), "Teoría")
+        self.tabs.addTab(self.create_tab_content("Contenido de Práctica"), "Práctica")
+        self.tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Sidebar: Tes IA (chat)
+        sidebar = self.create_sidebar_chat()
+        sidebar.setFixedWidth(350)
+        
+        # Agregar widgets al layout principal
+        main_layout.addWidget(self.tabs)
+        main_layout.addWidget(sidebar)
+        
+        # Aplicar estilo global a la aplicación
+        self.apply_global_styles()
 
-        if user_input.lower() == 'salir':
-            print("Adiós!")
+    def create_tab_content(self, text):
+        """
+        Crea un widget de contenido para las pestañas con un toque futurista.
+        """
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(20, 20, 20, 20)
+        label = QLabel(text)
+        label.setAlignment(Qt.AlignCenter)
+        label.setFont(QFont("Roboto", 16))
+        layout.addWidget(label)
+        return widget
+
+    def create_sidebar_chat(self):
+        """
+        Crea la barra lateral para el chat (Tes IA) con un estilo futurista.
+        Se añade un encabezado que muestra "Tes", un espacio para la imagen y "IA".
+        """
+        sidebar = QFrame()
+        sidebar.setFrameShape(QFrame.StyledPanel)
+        layout = QVBoxLayout(sidebar)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(15)
+        
+        # Encabezado: HBox con "Tes", imagen y "IA"
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(10)
+        
+        # Etiqueta "Tes" con fuente futurista (Orbitron)
+        label_tes = QLabel("Tez")
+        label_tes.setFont(QFont("Orbitron", 22, QFont.Bold))
+        label_tes.setStyleSheet("color: #E50914;")
+        header_layout.addWidget(label_tes)
+        
+        # Etiqueta para la imagen de Tes
+        image_label = QLabel()
+        pixmap = QPixmap("logo.webp")
+        if pixmap.isNull():
+            # Si no se carga la imagen, se muestra un marcador
+            image_label.setText("[Imagen]")
+            image_label.setAlignment(Qt.AlignCenter)
+            image_label.setStyleSheet("""
+                border: 1px solid #555;
+                color: #888;
+                background-color: #1e1e1e;
+            """)
+        else:
+            # Redimensionar la imagen a 50x50 píxeles
+            image_label.setPixmap(pixmap.scaled(50, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        image_label.setFixedSize(50, 50)
+        header_layout.addWidget(image_label)
+        
+        
+        
+        # Contenedor del encabezado centrado
+        header_container = QWidget()
+        header_container.setLayout(header_layout)
+        header_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        layout.addWidget(header_container)
+        
+        # Área para mostrar los mensajes del chat (solo lectura)
+        self.chat_display = QTextEdit()
+        self.chat_display.setReadOnly(True)
+        self.chat_display.setFont(QFont("Consolas", 12))
+        self.chat_display.setStyleSheet("""
+            background-color: #1e1e1e;
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            color: #cfcfcf;
+        """)
+        layout.addWidget(self.chat_display, stretch=1)
+        
+        # Área de entrada y botón para enviar mensaje
+        input_layout = QHBoxLayout()
+        self.chat_input = QLineEdit()
+        self.chat_input.setPlaceholderText("Escribe tu mensaje...")
+        self.chat_input.setFont(QFont("Roboto", 12))
+        self.chat_input.setStyleSheet("""
+            background-color: #1e1e1e;
+            border: none;
+            border-radius: 8px;
+            padding: 8px;
+            color: #cfcfcf;
+        """)
+        input_layout.addWidget(self.chat_input, stretch=1)
+        
+        send_button = QPushButton("Enviar")
+        send_button.setFont(QFont("Roboto", 12, QFont.Bold))
+        send_button.setStyleSheet("""
+            background-color: #E50914;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+        """)
+        send_button.clicked.connect(self.send_message)
+        input_layout.addWidget(send_button)
+        
+        layout.addLayout(input_layout)
+        
+        return sidebar
+
+    def build_prompt(self):
+        """
+        Construye el prompt utilizando únicamente los mensajes recientes
+        del historial (memoria) para evitar sobrecargar el contexto.
+        Se utiliza un máximo de MAX_MESSAGES pares (usuario y Tes).
+        """
+        MAX_MESSAGES = 20  # Puedes ajustar este valor según la capacidad del modelo
+        # Seleccionamos los últimos mensajes (pares de conversación)
+        context = self.conversation_history[-(MAX_MESSAGES * 2):]
+        prompt = "\n".join(context) + "\nTes:"
+        return prompt
+
+    def send_message(self):
+        """
+        Procesa el mensaje enviado desde el chat: si es un comando especial,
+        lo ejecuta; de lo contrario, utiliza la función build_prompt para generar
+        el contexto y llama a Ollama para obtener la respuesta, la cual se muestra
+        en la interfaz y se agrega al historial (memoria).
+        """
+        user_input = self.chat_input.text().strip()
+        if not user_input:
+            return
+
+        # Mostrar el mensaje del usuario en el chat
+        self.chat_display.append(f"<b style='color:#E50914;'>Tú:</b> {user_input}")
+
+        # Verificar comandos especiales
+        comando = user_input.lower()
+        if comando == 'salir':
+            self.chat_display.append("Adiós!")
             os.system("start Bye.mp3")
-            print("")
-            break
+            time.sleep(2.5)
+            os.system("taskkill /IM Microsoft.Media.Player.exe /F")
+            QApplication.quit()
+            return
 
-        elif user_input.lower() == "youtube":
-            print("Abriendo YouTube!")
+        elif comando == "youtube":
+            self.chat_display.append("Abriendo YouTube!")
             os.system("start youtube.mp3")
-            print("")
             webbrowser.open("https://www.youtube.com")
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "chatgpt":
-            print("Abriendo ChatGPT!")
+        elif comando == "chatgpt":
+            self.chat_display.append("Abriendo ChatGPT!")
             os.system("start GPT.mp3")
-            print("")
             webbrowser.open("https://chat.openai.com/")
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "google":
-            print("Abriendo Google!")
+        elif comando == "google":
+            self.chat_display.append("Abriendo Google!")
             os.system("start Google.mp3")
-            print("")
             webbrowser.open("https://www.google.com/?hl=es")
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "gmail":
-            print("Abriendo Gmail!")
+        elif comando == "gmail":
+            self.chat_display.append("Abriendo Gmail!")
             os.system("start Gmail.mp3")
             webbrowser.open("https://mail.google.com/mail/u/0/?ogbl#inbox")
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "groq":
-            print("Abriendo Groq!")
+        elif comando == "groq":
+            self.chat_display.append("Abriendo Groq!")
             os.system("start groq.mp3")
-            print("")
             webbrowser.open("https://groq.com/")
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "word":
-            print("Abriendo Microsoft Word...")
+        elif comando == "word":
+            self.chat_display.append("Abriendo Microsoft Word...")
             os.system("start Word.mp3")
-            print("")
             os.system('start winword')
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "powerpoint":
-            print("Abriendo Microsoft PowerPoint...")
+        elif comando == "powerpoint":
+            self.chat_display.append("Abriendo Microsoft PowerPoint...")
             os.system("start powerpoint.mp3")
-            print("")
             os.system('start powerpnt')
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "excel":
-            print("Abriendo Microsoft Excel...")
+        elif comando == "excel":
+            self.chat_display.append("Abriendo Microsoft Excel...")
             os.system("start Excel.mp3")
-            print("")
             os.system('start excel')
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "paint":
-            print("Abriendo Microsoft Paint...")
+        elif comando == "paint":
+            self.chat_display.append("Abriendo Microsoft Paint...")
             os.system("start paint.mp3")
-            print("")
             os.system('start mspaint')
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "ia":
-            print("Abriendo Archivo 'IA'...")
+        elif comando == "ia":
+            self.chat_display.append("Abriendo Archivo 'IA'...")
             os.system("start Archivo.mp3")
-            print("")
             os.system('start "" "C:\\Users\\jordy\\OneDrive\\Escritorio\\IA"')
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
-        elif user_input.lower() == "conver":
-            print("Abriendo Docker...")
+        elif comando == "conver":
+            self.chat_display.append("Abriendo Docker...")
             os.system('start "" "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"')
             time.sleep(2.5)
             os.system("taskkill /IM Microsoft.Media.Player.exe /F")
 
         else:
-            # Agregar el input del usuario al historial
-            conversation_history.append(f"Tú: {user_input}")
+            # Agregar el mensaje del usuario al historial (memoria)
+            self.conversation_history.append(f"Tú: {user_input}")
 
-            # Limitar el tamaño del historial para evitar exceder la capacidad del modelo
-            MAX_HISTORIAL = 20  # Puedes ajustar este número según sea necesario
-            if len(conversation_history) > MAX_HISTORIAL * 2:
-                conversation_history = conversation_history[-MAX_HISTORIAL * 2:]
+            # Construir el prompt con la función build_prompt (solo los mensajes recientes)
+            prompt = self.build_prompt()
 
-            # Crear el prompt uniendo el historial
-            prompt = '\n'.join(conversation_history) + '\nTes:'
-
+            # Mostrar en el chat que se está procesando la respuesta
+            self.chat_display.append("<b>Tes:</b> ")
+            respuesta_texto = ''
             try:
-                # Generar respuesta utilizando el historial como contexto
-                # Habilitar el streaming de la respuesta
-                print("Tes: ", end='', flush=True)
-                respuesta_texto = ''
+                # Generar la respuesta con Ollama (modo streaming)
                 for response in ollama.generate(model='llama3.2:1b', prompt=prompt, stream=True):
                     chunk = response['response']
-                    print(chunk, end='', flush=True)
+                    self.chat_display.insertPlainText(chunk)
+                    QApplication.processEvents()  # Actualiza la UI en tiempo real
                     respuesta_texto += chunk
 
-                print()  # Imprimir una nueva línea al final de la respuesta
+                self.chat_display.append("")  # Nueva línea tras la respuesta
 
-                # Agregar la respuesta del modelo al historial
-                conversation_history.append(f"Tes: {respuesta_texto.strip()}")
-
-                # Guardar el historial en el archivo
-                guardar_historial(conversation_history)
-
+                # Agregar la respuesta al historial (memoria)
+                self.conversation_history.append(f"Tes: {respuesta_texto.strip()}")
+                guardar_historial(self.conversation_history)
             except Exception as e:
-                print("\nOcurrió un error al generar la respuesta:", e)
-                continue
+                self.chat_display.append(f"\nOcurrió un error al generar la respuesta: {e}")
+        
+        # Limpiar el campo de entrada
+        self.chat_input.clear()
 
-    # Guardar el historial al salir del programa
-    guardar_historial(conversation_history)
+    def apply_global_styles(self):
+        """
+        Aplica estilos globales y configura una paleta con gradiente para el fondo.
+        """
+        self.setFont(QFont("Roboto", 10))
+        palette = QPalette()
+        gradient = QLinearGradient(0, 0, 0, self.height())
+        gradient.setColorAt(0.0, QColor("#141414"))
+        gradient.setColorAt(1.0, QColor("#1a1a1a"))
+        palette.setBrush(QPalette.Window, QBrush(gradient))
+        self.setPalette(palette)
+        self.setStyleSheet("""
+            QMainWindow { background: transparent; }
+            QWidget { background: transparent; }
+            QTabWidget::pane {
+                border: none;
+                background-color: #141414;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+            QTabBar::tab {
+                background: #1a1a1a;
+                color: #cfcfcf;
+                padding: 10px 20px;
+                margin: 2px;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+            QTabBar::tab:selected {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #E50914, stop:1 #ff3b3b);
+                color: white;
+            }
+        """)
 
-chat_with_ollama()
+    def get_tab_styles(self):
+        """
+        Devuelve estilos para el QTabWidget con un toque futurista.
+        """
+        return """
+            QTabWidget::pane { 
+                border: 1px solid #333; 
+                background-color: #141414; 
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+            QTabBar::tab {
+                background: #1a1a1a;
+                color: #cfcfcf;
+                padding: 10px 20px;
+                margin: 2px;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+            QTabBar::tab:selected {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #E50914, stop:1 #ff3b3b);
+                color: white;
+            }
+        """
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = TesApp()
+    window.show()
+    sys.exit(app.exec_())
+
