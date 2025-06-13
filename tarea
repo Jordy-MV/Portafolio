@@ -1,20 +1,13 @@
-/*
- * Archivo: main.cpp
- * Autor: [Tu Nombre Completo]
- * Fecha: [Fecha Actual, por ejemplo: 12 de junio de 2025]
- * Descripción: Proyecto 1 - Sistema de Gestión de Tareas.
- * Permite agregar, buscar, mostrar y eliminar tareas.
- * Incluye validación de entrada y uso de funciones, estructuras y ciclos.
- */
 
-#include <iostream>  // Para entrada/salida (cout, cin)
-#include <vector>    // Para almacenar las tareas dinámicamente (std::vector)
-#include <string>    // Para manejar cadenas de texto (std::string)
-#include <limits>    // Para std::numeric_limits (útil en validación de entrada para limpiar buffer)
-#include <cctype>    // Para std::toupper (convertir a mayúsculas)
-#include <iomanip>   // Para std::setw, std::left (formato de salida tabulado)
-#include <algorithm> // Para std::find_if (buscar elementos en un rango)
-#include <stdexcept> // Para manejar excepciones de std::stoi
+
+#include <iostream>  
+#include <vector>    
+#include <string>    
+#include <limits>    
+#include <cctype>   
+#include <iomanip>   
+#include <algorithm> 
+#include <stdexcept> 
 
 // Definición de la estructura Task (Tarea)
 // Esta estructura agrupará toda la información relacionada con una sola tarea.
