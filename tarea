@@ -1,0 +1,404 @@
+/*
+ * Archivo: main.cpp
+ * Autor: [Tu Nombre Completo]
+ * Fecha: [Fecha Actual, por ejemplo: 12 de junio de 2025]
+ * Descripción: Proyecto 1 - Sistema de Gestión de Tareas.
+ * Permite agregar, buscar, mostrar y eliminar tareas.
+ * Incluye validación de entrada y uso de funciones, estructuras y ciclos.
+ */
+
+#include <iostream>  // Para entrada/salida (cout, cin)
+#include <vector>    // Para almacenar las tareas dinámicamente (std::vector)
+#include <string>    // Para manejar cadenas de texto (std::string)
+#include <limits>    // Para std::numeric_limits (útil en validación de entrada para limpiar buffer)
+#include <cctype>    // Para std::toupper (convertir a mayúsculas)
+#include <iomanip>   // Para std::setw, std::left (formato de salida tabulado)
+#include <algorithm> // Para std::find_if (buscar elementos en un rango)
+#include <stdexcept> // Para manejar excepciones de std::stoi
+
+// Definición de la estructura Task (Tarea)
+// Esta estructura agrupará toda la información relacionada con una sola tarea.
+struct Task {
+    int code;            // Código numérico de 4 dígitos
+    std::string name;    // Nombre descriptivo de la tarea
+    std::string dueDate; // Fecha de vencimiento (dd/mm/aaaa)
+    std::string startTime; // Hora de inicio (hh:mm)
+    std::string endTime;   // Hora de finalización (hh:mm)
+    int durationMinutes; // Duración de la tarea en minutos (calculado automáticamente)
+};
+
+// --- Prototipos de funciones auxiliares ---
+// (Estas funciones realizan validaciones y cálculos específicos)
+
+// Convierte una cadena de tiempo "hh:mm" a minutos desde la medianoche.
+// Retorna -1 si el formato es inválido o los valores no son numéricos o están fuera de rango.
+int timeToMinutes(const std::string& timeStr) {
+    if (timeStr.length() != 5 || timeStr[2] != ':') {
+        return -1; // Formato incorrecto
+    }
+    try {
+        int hours = std::stoi(timeStr.substr(0, 2));   // Extrae las horas (ej: "10" de "10:30")
+        int minutes = std::stoi(timeStr.substr(3, 2)); // Extrae los minutos (ej: "30" de "10:30")
+
+        if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            return hours * 60 + minutes; // Calcula el total de minutos desde medianoche
+        } else {
+            return -1; // Hora o minuto fuera de rango válido (ej: 25:00 o 10:65)
+        }
+    } catch (const std::invalid_argument& e) {
+        return -1; // La cadena no pudo convertirse a número (ej: "aa:bb")
+    } catch (const std::out_of_range& e) {
+        return -1; // El número es demasiado grande para int
+    }
+}
+
+// Valida el formato y la validez de una fecha dd/mm/aaaa.
+bool isValidDate(const std::string& dateStr) {
+    if (dateStr.length() != 10 || dateStr[2] != '/' || dateStr[5] != '/') {
+        return false; // Formato incorrecto (longitud o separadores)
+    }
+
+    try {
+        int day = std::stoi(dateStr.substr(0, 2));
+        int month = std::stoi(dateStr.substr(3, 2));
+        int year = std::stoi(dateStr.substr(6, 4));
+
+        // Validar rango de año (arbitrario pero razonable)
+        if (year < 1900 || year > 2100) return false;
+
+        // Validar rango de mes
+        if (month < 1 || month > 12) return false;
+
+        // Días en cada mes (índice 0 no usado, enero en 1, etc.)
+        int daysInMonth[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+        // Ajuste para año bisiesto en febrero
+        if (month == 2 && ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))) {
+            daysInMonth[2] = 29; // Febrero tiene 29 días en año bisiesto
+        }
+
+        // Validar rango de día para el mes dado
+        if (day < 1 || day > daysInMonth[month]) return false;
+
+    } catch (const std::invalid_argument& e) {
+        return false; // No es un número válido en día, mes o año
+    } catch (const std::out_of_range& e) {
+        return false; // El número es demasiado grande
+    }
+
+    return true; // La fecha es válida
+}
+
+// Valida el formato y la validez de una hora hh:mm.
+bool isValidTime(const std::string& timeStr) {
+    if (timeStr.length() != 5 || timeStr[2] != ':') {
+        return false; // Formato incorrecto
+    }
+
+    try {
+        int hours = std::stoi(timeStr.substr(0, 2));
+        int minutes = std::stoi(timeStr.substr(3, 2));
+
+        if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            return true; // Hora y minutos dentro de rango válido
+        }
+    } catch (const std::invalid_argument& e) {
+        return false; // No es un número válido
+    } catch (const std::out_of_range& e) {
+        return false; // El número es demasiado grande
+    }
+    return false; // Hora inválida (fuera de rango)
+}
+
+
+// --- Prototipos de funciones principales del programa ---
+// (Estas son las funciones que se llaman desde el menú principal)
+
+void addTask(std::vector<Task>& tasks);
+void searchTask(const std::vector<Task>& tasks);
+void showAllTasks(const std::vector<Task>& tasks);
+void deleteTask(std::vector<Task>& tasks);
+
+
+// --- Implementación de funciones principales ---
+
+// Permite al usuario agregar una o varias tareas al sistema.
+void addTask(std::vector<Task>& tasks) {
+    if (tasks.size() >= 5) {
+        std::cout << "Ya se ha alcanzado el número máximo de 5 tareas." << std::endl;
+        return;
+    }
+
+    int numTasksToAdd;
+    std::cout << "\nIngrese la cantidad de tareas que desea agregar (1-" << (5 - tasks.size()) << "): ";
+
+    while (!(std::cin >> numTasksToAdd) || numTasksToAdd < 1 || numTasksToAdd > (5 - tasks.size())) {
+        std::cout << "Cantidad de tareas fuera de rango o invalida. Ingrese un valor entre 1 y "
+                  << (5 - tasks.size()) << ": ";
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Consumir el salto de línea
+
+    for (int i = 0; i < numTasksToAdd; ++i) {
+        Task newTask;
+        bool inputValid = false; // Bandera para controlar los bucles de validación de entrada
+
+        std::cout << "\n--- Agregando Tarea " << (tasks.size() + 1) << " ---" << std::endl;
+
+        // Ingreso y validación del Código de Tarea
+        do {
+            std::cout << "Número de código tarea (4 dígitos): ";
+            std::string codeStr;
+            std::getline(std::cin, codeStr);
+
+            if (codeStr.length() == 4 && codeStr.find_first_not_of("0123456789") == std::string::npos) {
+                newTask.code = std::stoi(codeStr);
+                inputValid = true;
+            } else {
+                std::cout << "Código de tarea inválido. Debe ser un valor numérico de 4 dígitos." << std::endl;
+                inputValid = false;
+            }
+        } while (!inputValid);
+
+        // Ingreso y validación del Nombre de la Tarea
+        do {
+            std::cout << "Nombre de la tarea: ";
+            std::getline(std::cin, newTask.name);
+            if (newTask.name.empty()) {
+                std::cout << "El nombre de la tarea es obligatorio." << std::endl;
+                inputValid = false;
+            } else {
+                inputValid = true;
+            }
+        } while (!inputValid);
+
+        // Ingreso y validación de la Fecha de Vencimiento
+        do {
+            std::cout << "Fecha de vencimiento (dd/mm/aaaa): ";
+            std::getline(std::cin, newTask.dueDate);
+            if (newTask.dueDate.empty()) {
+                std::cout << "La fecha de vencimiento es obligatoria." << std::endl;
+                inputValid = false;
+            } else if (!isValidDate(newTask.dueDate)) {
+                std::cout << "Formato de fecha inválido o fecha no válida. Use dd/mm/aaaa." << std::endl;
+                inputValid = false;
+            } else {
+                inputValid = true;
+            }
+        } while (!inputValid);
+
+        // Ingreso y validación de la Hora de Inicio
+        do {
+            std::cout << "Hora de inicio (hh:mm): ";
+            std::getline(std::cin, newTask.startTime);
+            if (newTask.startTime.empty()) {
+                std::cout << "La hora de inicio es obligatoria." << std::endl;
+                inputValid = false;
+            } else if (!isValidTime(newTask.startTime)) {
+                std::cout << "Formato de hora inválido o hora no válida. Use hh:mm." << std::endl;
+                inputValid = false;
+            } else {
+                inputValid = true;
+            }
+        } while (!inputValid);
+
+        // Ingreso y validación de la Hora de Finalización
+        do {
+            std::cout << "Hora de finalización (hh:mm): ";
+            std::getline(std::cin, newTask.endTime);
+            if (newTask.endTime.empty()) {
+                std::cout << "La hora de finalización es obligatoria." << std::endl;
+                inputValid = false;
+            } else if (!isValidTime(newTask.endTime)) {
+                std::cout << "Formato de hora inválido o hora no válida. Use hh:mm." << std::endl;
+                inputValid = false;
+            } else {
+                // Validación adicional: Hora de fin no debe ser anterior o igual a la de inicio
+                if (timeToMinutes(newTask.endTime) <= timeToMinutes(newTask.startTime)) {
+                    std::cout << "La hora de finalización debe ser posterior a la hora de inicio." << std::endl;
+                    inputValid = false;
+                } else {
+                    inputValid = true;
+                }
+            }
+        } while (!inputValid);
+
+        // Calcular la duración en minutos
+        newTask.durationMinutes = timeToMinutes(newTask.endTime) - timeToMinutes(newTask.startTime);
+
+        tasks.push_back(newTask); // Agrega la tarea al vector
+        std::cout << "Tarea agregada exitosamente." << std::endl;
+    }
+
+    char choice;
+    std::cout << "Desea regresar al menú principal (S/N): ";
+    std::cin >> choice;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Consumir el salto de línea
+
+    choice = std::toupper(choice); // Convertir a mayúscula para la comparación
+
+    if (choice == 'N') {
+        // Según la especificación, si es 'N', se puede iniciar nuevamente el proceso de agregar tareas.
+        // En este diseño, la forma más limpia es permitir que el usuario seleccione la opción 1 de nuevo
+        // desde el menú principal. La función simplemente termina y regresa al main.
+        return;
+    }
+    // Si es 'S' o cualquier otra entrada (se asume 'S' si no es 'N'), regresa al menú principal.
+}
+
+// Busca una tarea por su código y muestra su información.
+void searchTask(const std::vector<Task>& tasks) {
+    if (tasks.empty()) {
+        std::cout << "Debe ingresar primero la tarea." << std::endl;
+        return;
+    }
+
+    int searchCode;
+    std::cout << "\nIngrese el código de la tarea a buscar: ";
+    while (!(std::cin >> searchCode)) {
+        std::cout << "Código inválido. Ingrese un valor numérico: ";
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Consumir el salto de línea
+
+    bool found = false;
+    // Iterar sobre las tareas para encontrar la que coincida con el código
+    for (const auto& task : tasks) { // Bucle for basado en rango (C++11 o superior)
+        if (task.code == searchCode) {
+            found = true;
+            std::cout << "\n--- Tarea Encontrada ---" << std::endl;
+            std::cout << "Nombre de la tarea: " << task.name << std::endl;
+            std::cout << "Fecha de vencimiento: " << task.dueDate << std::endl;
+            std::cout << "Duración en minutos: " << task.durationMinutes << std::endl;
+            break; // Salir del bucle una vez que la tarea es encontrada
+        }
+    }
+
+    if (!found) {
+        std::cout << "Tarea no encontrada." << std::endl;
+    }
+}
+
+// Muestra todas las tareas registradas en un formato tabulado.
+void showAllTasks(const std::vector<Task>& tasks) {
+    if (tasks.empty()) {
+        std::cout << "No hay tareas registradas." << std::endl;
+        return;
+    }
+
+    std::cout << "\n----- Lista de todas las tareas -----" << std::endl;
+    // Imprimir encabezado de la tabla con formato
+    std::cout << std::left << std::setw(10) << "Código"
+              << std::left << std::setw(30) << "Nombre"
+              << std::left << std::setw(18) << "Fecha Venc."
+              << std::left << std::setw(15) << "Hora Inicio"
+              << std::left << std::setw(15) << "Hora Fin"
+              << std::left << std::setw(10) << "Duración (min)" << std::endl;
+    std::cout << std::string(100, '-') << std::endl; // Línea separadora
+
+    // Iterar y mostrar los detalles de cada tarea
+    for (const auto& task : tasks) {
+        std::cout << std::left << std::setw(10) << task.code
+                  << std::left << std::setw(30) << task.name
+                  << std::left << std::setw(18) << task.dueDate
+                  << std::left << std::setw(15) << task.startTime
+                  << std::left << std::setw(15) << task.endTime
+                  << std::left << std::setw(10) << task.durationMinutes << std::endl;
+    }
+    std::cout << std::string(100, '-') << std::endl; // Línea final
+}
+
+// Permite eliminar una tarea específica por su código.
+void deleteTask(std::vector<Task>& tasks) {
+    if (tasks.empty()) {
+        std::cout << "Debe ingresar primero la tarea." << std::endl;
+        return;
+    }
+
+    int deleteCode;
+    std::cout << "\nIngrese el código de la tarea a eliminar: ";
+    while (!(std::cin >> deleteCode)) {
+        std::cout << "Código inválido. Ingrese un valor numérico: ";
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Consumir el salto de línea
+
+    // Buscar la tarea usando std::find_if y una expresión lambda
+    auto it = std::find_if(tasks.begin(), tasks.end(), [deleteCode](const Task& t) {
+        return t.code == deleteCode;
+    });
+
+    if (it != tasks.end()) { // Si el iterador no es tasks.end(), la tarea fue encontrada
+        std::cout << "¿Está seguro de que desea eliminar la tarea [" << it->name << "]? (S/N): ";
+        char confirmation;
+        std::cin >> confirmation;
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Consumir el salto de línea
+
+        confirmation = std::toupper(confirmation); // Convertir a mayúscula
+
+        if (confirmation == 'S') {
+            tasks.erase(it); // Eliminar la tarea del vector
+            std::cout << "Tarea eliminada exitosamente." << std::endl;
+        } else {
+            std::cout << "Acción cancelada. La tarea no ha sido eliminada." << std::endl;
+        }
+    } else { // Si la tarea no se encontró
+        std::cout << "Tarea no encontrada." << std::endl;
+    }
+}
+
+
+// --- Función Principal (main) ---
+// Es el punto de entrada del programa, gestiona el menú y el flujo general.
+int main() {
+    std::vector<Task> tasks; // Vector para almacenar todas las tareas
+    int choice;              // Variable para la opción del menú del usuario
+
+    do {
+        // Mostrar el menú principal
+        std::cout << "\n----- Menú Principal -----" << std::endl;
+        std::cout << "1. Agregar Tareas" << std::endl;
+        std::cout << "2. Buscar Tarea" << std::endl;
+        std::cout << "3. Mostrar todas las tareas" << std::endl;
+        std::cout << "4. Eliminar Tarea" << std::endl;
+        std::cout << "5. Salir del Programa" << std::endl;
+        std::cout << "--------------------------" << std::endl;
+        std::cout << "Ingrese su opción: ";
+
+        // Validación de la entrada del menú
+        while (!(std::cin >> choice) || choice < 1 || choice > 5) {
+            std::cout << "Opción inválida, vuelva a intentarlo: ";
+            std::cin.clear(); // Limpiar el estado de error de cin
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Descartar entrada inválida
+        }
+        // Descartar el resto de la línea después de una entrada numérica válida
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+        // Manejar la opción elegida por el usuario
+        switch (choice) {
+            case 1:
+                addTask(tasks);
+                break;
+            case 2:
+                // Validar que haya tareas antes de buscar
+                searchTask(tasks);
+                break;
+            case 3:
+                // Validar que haya tareas antes de mostrar
+                showAllTasks(tasks);
+                break;
+            case 4:
+                // Validar que haya tareas antes de eliminar
+                deleteTask(tasks);
+                break;
+            case 5:
+                std::cout << "Saliendo del programa. ¡Hasta luego!" << std::endl;
+                break;
+        }
+    } while (choice != 5); // Repetir el menú hasta que el usuario elija salir
+
+    return 0; // El programa finaliza exitosamente
+}
