@@ -1,0 +1,203 @@
+
+
+#include <iostream>
+#include <string>
+using namespace std;
+
+// Variables globales
+int codigos[5];
+string nombres[5];
+string fechas[5];
+string horaInicio[5];
+string horaFin[5];
+int total = 0;
+
+int main() {
+    int opcion;
+    
+    cout << "SISTEMA DE GESTION DE TAREAS" << endl;
+    
+    do {
+        cout << "\nMenu Principal" << endl;
+        cout << "1. Agregar Tareas" << endl;
+        cout << "2. Buscar Tarea" << endl;
+        cout << "3. Mostrar todas las tareas" << endl;
+        cout << "4. Eliminar Tarea" << endl;
+        cout << "5. Salir del Programa" << endl;
+        cout << "Opcion: ";
+        cin >> opcion;
+        
+        switch (opcion) {
+            case 1: {
+                // Agregar tareas
+                int cantidad;
+                char resp;
+                
+                do {
+                    cout << "Cuantas tareas agregar (1-5): ";
+                    cin >> cantidad;
+                    
+                    if (cantidad < 1 || cantidad > 5 || total + cantidad > 5) {
+                        cout << "Cantidad de tareas fuera de rango" << endl;
+                        break;
+                    }
+                    
+                    cin.ignore();
+                    
+                    for (int i = 0; i < cantidad; i++) {
+                        string cod;
+                        do {
+                            cout << "Codigo (4 digitos): ";
+                            getline(cin, cod);
+                        } while (cod.length() != 4);
+                        codigos[total] = stoi(cod);
+                        
+                        do {
+                            cout << "Nombre: ";
+                            getline(cin, nombres[total]);
+                        } while (nombres[total].empty());
+                        
+                        do {
+                            cout << "Fecha (dd/mm/aaaa): ";
+                            getline(cin, fechas[total]);
+                        } while (fechas[total].length() != 10 || fechas[total][2] != '/' || fechas[total][5] != '/');
+                        
+                        do {
+                            cout << "Hora inicio (hh:mm): ";
+                            getline(cin, horaInicio[total]);
+                        } while (horaInicio[total].length() != 5 || horaInicio[total][2] != ':');
+                        
+                        do {
+                            cout << "Hora fin (hh:mm): ";
+                            getline(cin, horaFin[total]);
+                        } while (horaFin[total].length() != 5 || horaFin[total][2] != ':');
+                        
+                        total++;
+                        cout << "Tarea agregada exitosamente" << endl;
+                    }
+                    
+                    do {
+                        cout << "Regresar al menu (S/N): ";
+                        cin >> resp;
+                        if (resp == 's') resp = 'S';
+                        if (resp == 'n') resp = 'N';
+                    } while (resp != 'S' && resp != 'N');
+                    
+                } while (resp == 'N' && total < 5);
+                break;
+            }
+            
+            case 2: {
+                // Buscar tarea
+                if (total == 0) {
+                    cout << "Debe ingresar primero la tarea" << endl;
+                    break;
+                }
+                
+                int cod;
+                cout << "Codigo a buscar: ";
+                cin >> cod;
+                
+                bool encontrada = false;
+                for (int i = 0; i < total; i++) {
+                    if (codigos[i] == cod) {
+                        int h1 = (horaInicio[i][0] - '0') * 10 + (horaInicio[i][1] - '0');
+                        int m1 = (horaInicio[i][3] - '0') * 10 + (horaInicio[i][4] - '0');
+                        int h2 = (horaFin[i][0] - '0') * 10 + (horaFin[i][1] - '0');
+                        int m2 = (horaFin[i][3] - '0') * 10 + (horaFin[i][4] - '0');
+                        int minutos = (h2 * 60 + m2) - (h1 * 60 + m1);
+                        
+                        cout << "Codigo: " << codigos[i] << endl;
+                        cout << "Nombre: " << nombres[i] << endl;
+                        cout << "Fecha: " << fechas[i] << endl;
+                        cout << "Minutos: " << minutos << endl;
+                        encontrada = true;
+                        break;
+                    }
+                }
+                if (!encontrada) {
+                    cout << "Tarea no encontrada" << endl;
+                }
+                break;
+            }
+            
+            case 3: {
+                // Mostrar todas
+                if (total == 0) {
+                    cout << "No hay tareas registradas" << endl;
+                    break;
+                }
+                
+                cout << "Lista de tareas:" << endl;
+                for (int i = 0; i < total; i++) {
+                    int h1 = (horaInicio[i][0] - '0') * 10 + (horaInicio[i][1] - '0');
+                    int m1 = (horaInicio[i][3] - '0') * 10 + (horaInicio[i][4] - '0');
+                    int h2 = (horaFin[i][0] - '0') * 10 + (horaFin[i][1] - '0');
+                    int m2 = (horaFin[i][3] - '0') * 10 + (horaFin[i][4] - '0');
+                    int minutos = (h2 * 60 + m2) - (h1 * 60 + m1);
+                    
+                    cout << "Codigo: " << codigos[i] << endl;
+                    cout << "Nombre: " << nombres[i] << endl;
+                    cout << "Fecha: " << fechas[i] << endl;
+                    cout << "Minutos: " << minutos << endl;
+                    cout << "---" << endl;
+                }
+                break;
+            }
+            
+            case 4: {
+                // Eliminar tarea
+                if (total == 0) {
+                    cout << "Debe ingresar primero la tarea" << endl;
+                    break;
+                }
+                
+                int cod;
+                cout << "Codigo a eliminar: ";
+                cin >> cod;
+                
+                bool encontrada = false;
+                for (int i = 0; i < total; i++) {
+                    if (codigos[i] == cod) {
+                        char conf;
+                        do {
+                            cout << "Eliminar " << nombres[i] << "? (S/N): ";
+                            cin >> conf;
+                            if (conf == 's') conf = 'S';
+                            if (conf == 'n') conf = 'N';
+                        } while (conf != 'S' && conf != 'N');
+                        
+                        if (conf == 'S') {
+                            for (int j = i; j < total - 1; j++) {
+                                codigos[j] = codigos[j + 1];
+                                nombres[j] = nombres[j + 1];
+                                fechas[j] = fechas[j + 1];
+                                horaInicio[j] = horaInicio[j + 1];
+                                horaFin[j] = horaFin[j + 1];
+                            }
+                            total--;
+                            cout << "Tarea eliminada exitosamente" << endl;
+                        }
+                        encontrada = true;
+                        break;
+                    }
+                }
+                if (!encontrada) {
+                    cout << "Tarea no encontrada" << endl;
+                }
+                break;
+            }
+            
+            case 5:
+                cout << "Saliendo..." << endl;
+                break;
+                
+            default:
+                cout << "Opcion invalida, vuelva a intentarlo" << endl;
+                break;
+        }
+        
+    } while (opcion != 5);
+    
+    return 0;
+}
