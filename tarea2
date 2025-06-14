@@ -1,16 +1,13 @@
-// Autor: [Tu nombre aqui]
+// Autor: [Tu nombre]
 // Fecha: Junio 2025
-// Programa de gestion de tareas. Permite agregar, mostrar, buscar y eliminar tareas.
-// Hecho para la tarea del curso Introduccion a la Programacion
+// Descripcion: Programa sencillo de gestion de tareas para curso de Introduccion a la Programacion
 
 #include <iostream>
 #include <string>
-#include <iomanip>
-#include <cctype>
 
 using namespace std;
 
-const int MAX_TAREAS = 5;
+const int MAX = 5;
 
 struct Tarea {
     int codigo;
@@ -21,202 +18,160 @@ struct Tarea {
     bool activa;
 };
 
-Tarea tareas[MAX_TAREAS];
-int cantidadTareas = 0;
+Tarea tareas[MAX];
+int cantidad = 0;
 
-bool esNumero(string s) {
-    for (char c : s) {
-        if (!isdigit(c)) return false;
-    }
-    return true;
+bool formatoFecha(string f) {
+    return f.length() == 10 && f[2] == '/' && f[5] == '/';
 }
 
-int calcularMinutos(string inicio, string fin) {
-    int h1, m1, h2, m2;
-    sscanf(inicio.c_str(), "%d:%d", &h1, &m1);
-    sscanf(fin.c_str(), "%d:%d", &h2, &m2);
-    return (h2 * 60 + m2) - (h1 * 60 + m1);
+bool formatoHora(string h) {
+    return h.length() == 5 && h[2] == ':';
 }
 
-bool validarHora(string hora) {
-    if (hora.length() != 5 || hora[2] != ':') return false;
-    if (!isdigit(hora[0]) || !isdigit(hora[1]) || !isdigit(hora[3]) || !isdigit(hora[4])) return false;
-    int h = stoi(hora.substr(0,2));
-    int m = stoi(hora.substr(3,2));
-    return (h >= 0 && h < 24 && m >= 0 && m < 60);
-}
-
-bool validarFecha(string fecha) {
-    if (fecha.length() != 10 || fecha[2] != '/' || fecha[5] != '/') return false;
-    string dd = fecha.substr(0,2);
-    string mm = fecha.substr(3,2);
-    string aa = fecha.substr(6,4);
-    return esNumero(dd) && esNumero(mm) && esNumero(aa);
-}
-
-void agregarTarea() {
-    if (cantidadTareas >= MAX_TAREAS) {
-        cout << "No se pueden agregar mas tareas.\n";
+void agregar() {
+    if (cantidad >= MAX) {
+        cout << "No se pueden agregar mas tareas\n";
         return;
     }
 
     int n;
-    cout << "Ingrese la cantidad de tareas a agregar (1-5): ";
+    cout << "Cuantas tareas desea agregar (1-5): ";
     cin >> n;
-    if (n < 1 || n > 5 || cantidadTareas + n > 5) {
-        cout << "Cantidad de tareas fuera de rango.\n";
+    if (n < 1 || n > 5 || cantidad + n > 5) {
+        cout << "Cantidad fuera de rango\n";
         return;
     }
 
     cin.ignore();
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < n; i++) {
         Tarea t;
-        string input;
+        string temp;
 
-        cout << "Codigo de tarea (4 digitos): ";
-        getline(cin, input);
-        if (input.length() != 4 || !esNumero(input)) {
-            cout << "Codigo invalido.\n";
-            --i; continue;
+        cout << "Codigo (4 digitos): ";
+        getline(cin, temp);
+        if (temp.length() != 4) {
+            cout << "Codigo invalido\n";
+            i--;
+            continue;
         }
-        t.codigo = stoi(input);
+        t.codigo = stoi(temp);
 
-        cout << "Nombre de la tarea: ";
+        cout << "Nombre: ";
         getline(cin, t.nombre);
         if (t.nombre.empty()) {
-            cout << "Nombre requerido.\n";
-            --i; continue;
+            cout << "Nombre vacio\n";
+            i--;
+            continue;
         }
 
         cout << "Fecha (dd/mm/aaaa): ";
         getline(cin, t.fecha);
-        if (!validarFecha(t.fecha)) {
-            cout << "Fecha invalida.\n";
-            --i; continue;
+        if (!formatoFecha(t.fecha)) {
+            cout << "Formato incorrecto\n";
+            i--;
+            continue;
         }
 
-        cout << "Hora de inicio (hh:mm): ";
+        cout << "Hora inicio (hh:mm): ";
         getline(cin, t.horaInicio);
-        if (!validarHora(t.horaInicio)) {
-            cout << "Hora invalida.\n";
-            --i; continue;
+        if (!formatoHora(t.horaInicio)) {
+            cout << "Formato incorrecto\n";
+            i--;
+            continue;
         }
 
-        cout << "Hora de fin (hh:mm): ";
+        cout << "Hora fin (hh:mm): ";
         getline(cin, t.horaFin);
-        if (!validarHora(t.horaFin)) {
-            cout << "Hora invalida.\n";
-            --i; continue;
+        if (!formatoHora(t.horaFin)) {
+            cout << "Formato incorrecto\n";
+            i--;
+            continue;
         }
 
         t.activa = true;
-        tareas[cantidadTareas++] = t;
-
-        cout << "Tarea agregada exitosamente.\n";
+        tareas[cantidad++] = t;
+        cout << "Tarea agregada\n";
     }
 }
 
-void mostrarTareas() {
-    if (cantidadTareas == 0) {
-        cout << "No hay tareas registradas.\n";
+void mostrar() {
+    if (cantidad == 0) {
+        cout << "No hay tareas\n";
         return;
     }
-
-    cout << "+--------+----------------------+--------------+------------------+\n";
-    cout << "| Codigo | Nombre               | Fecha        | Minutos          |\n";
-    cout << "+--------+----------------------+--------------+------------------+\n";
-    for (int i = 0; i < cantidadTareas; ++i) {
-        if (!tareas[i].activa) continue;
-        cout << "| " << setw(6) << tareas[i].codigo << " | "
-             << setw(20) << tareas[i].nombre << " | "
-             << setw(12) << tareas[i].fecha << " | "
-             << setw(16) << calcularMinutos(tareas[i].horaInicio, tareas[i].horaFin) << " |\n";
+    for (int i = 0; i < cantidad; i++) {
+        if (tareas[i].activa) {
+            cout << "Codigo: " << tareas[i].codigo << endl;
+            cout << "Nombre: " << tareas[i].nombre << endl;
+            cout << "Fecha: " << tareas[i].fecha << endl;
+            cout << "Hora inicio: " << tareas[i].horaInicio << endl;
+            cout << "Hora fin: " << tareas[i].horaFin << endl;
+            cout << "----------------------\n";
+        }
     }
-    cout << "+--------+----------------------+--------------+------------------+\n";
 }
 
-void buscarTarea() {
-    if (cantidadTareas == 0) {
-        cout << "Debe ingresar primero la tarea.\n";
+void buscar() {
+    if (cantidad == 0) {
+        cout << "Debe ingresar primero la tarea\n";
         return;
     }
-
-    int codigo;
-    cout << "Ingrese el codigo de la tarea a buscar: ";
-    cin >> codigo;
-
-    for (int i = 0; i < cantidadTareas; ++i) {
-        if (tareas[i].activa && tareas[i].codigo == codigo) {
-            cout << "+--------+----------------------+--------------+------------------+\n";
-            cout << "| Codigo | Nombre               | Fecha        | Minutos          |\n";
-            cout << "+--------+----------------------+--------------+------------------+\n";
-            cout << "| " << setw(6) << tareas[i].codigo << " | "
-                 << setw(20) << tareas[i].nombre << " | "
-                 << setw(12) << tareas[i].fecha << " | "
-                 << setw(16) << calcularMinutos(tareas[i].horaInicio, tareas[i].horaFin) << " |\n";
-            cout << "+--------+----------------------+--------------+------------------+\n";
+    int cod;
+    cout << "Codigo a buscar: ";
+    cin >> cod;
+    for (int i = 0; i < cantidad; i++) {
+        if (tareas[i].activa && tareas[i].codigo == cod) {
+            cout << "Nombre: " << tareas[i].nombre << endl;
+            cout << "Fecha: " << tareas[i].fecha << endl;
+            cout << "Hora inicio: " << tareas[i].horaInicio << endl;
+            cout << "Hora fin: " << tareas[i].horaFin << endl;
             return;
         }
     }
     cout << "Tarea no encontrada\n";
 }
 
-void eliminarTarea() {
-    if (cantidadTareas == 0) {
-        cout << "Debe ingresar primero la tarea.\n";
+void eliminar() {
+    if (cantidad == 0) {
+        cout << "Debe ingresar primero la tarea\n";
         return;
     }
-
-    int codigo;
-    cout << "Ingrese el codigo de la tarea a eliminar: ";
-    cin >> codigo;
-
-    for (int i = 0; i < cantidadTareas; ++i) {
-        if (tareas[i].activa && tareas[i].codigo == codigo) {
-            cout << "Esta seguro de eliminar la tarea \"" << tareas[i].nombre << "\"? (S/N): ";
-            char confirm;
-            cin >> confirm;
-            confirm = toupper(confirm);
-            if (confirm == 'S') {
-                tareas[i].activa = false;
-                cout << "Tarea eliminada exitosamente.\n";
-            } else {
-                cout << "Accion cancelada.\n";
-            }
+    int cod;
+    cout << "Codigo a eliminar: ";
+    cin >> cod;
+    for (int i = 0; i < cantidad; i++) {
+        if (tareas[i].activa && tareas[i].codigo == cod) {
+            tareas[i].activa = false;
+            cout << "Tarea eliminada\n";
             return;
         }
     }
-    cout << "Tarea no encontrada.\n";
+    cout << "Tarea no encontrada\n";
 }
 
 int main() {
-    int opcion;
+    int op;
     do {
-        cout << "\n--- MENU PRINCIPAL ---\n";
-        cout << "1. Agregar Tareas\n";
-        cout << "2. Buscar Tarea\n";
-        cout << "3. Mostrar todas las tareas\n";
-        cout << "4. Eliminar Tarea\n";
-        cout << "5. Salir del Programa\n";
-        cout << "Seleccione una opcion (1-5): ";
-        cin >> opcion;
+        cout << "\nMENU\n";
+        cout << "1. Agregar\n";
+        cout << "2. Buscar\n";
+        cout << "3. Mostrar\n";
+        cout << "4. Eliminar\n";
+        cout << "5. Salir\n";
+        cout << "Opcion: ";
+        cin >> op;
 
-        if (cin.fail() || opcion < 1 || opcion > 5) {
-            cin.clear();
-            cin.ignore(1000, '\n');
-            cout << "Opcion invalida, vuelva a intentarlo.\n";
-            continue;
+        switch(op) {
+            case 1: agregar(); break;
+            case 2: buscar(); break;
+            case 3: mostrar(); break;
+            case 4: eliminar(); break;
+            case 5: cout << "Saliendo...\n"; break;
+            default: cout << "Opcion invalida\n";
         }
-
-        switch (opcion) {
-            case 1: agregarTarea(); break;
-            case 2: buscarTarea(); break;
-            case 3: mostrarTareas(); break;
-            case 4: eliminarTarea(); break;
-            case 5: cout << "Saliendo del programa...\n"; break;
-        }
-
-    } while (opcion != 5);
+    } while (op != 5);
 
     return 0;
 }
+
