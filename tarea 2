@@ -1,0 +1,362 @@
+/*
+  Proyecto 2 - Gestión de Estudiantes y Calificaciones
+  Estudiante: Jordy Mayorga Villegas
+  Fecha: 24/07/2025
+  Descripción: Programa para registrar estudiantes,
+  gestionar calificaciones, modificarlos, eliminarlos y
+  generar reporte con promedios
+
+ */
+
+
+#include <iostream>
+#include <string>
+#include <fstream>
+using namespace std;
+
+// las constantes
+const int MAX_ESTUDIANTES = 100;
+const int MAX_NOTAS = 200;
+
+// agrupa todos los datos del estudiante
+struct Estudiante {
+    string cedula;
+    string nombre;
+    string provincia;
+    string canton;
+    string distrito;
+    string genero;
+    int edad;
+};
+
+// agrupa las notas de una materia para un estudiante
+struct Nota {
+    string cedula;
+    string materia;
+    double proy1, proy2, ensayo, foro, defensa;  // los rubros
+    double promedio;                              // calculo de prome
+    string estado;
+};
+
+// arreglos en memoria para guardar los registros
+Estudiante estudiantes[MAX_ESTUDIANTES];
+int contadorEstudiantes = 0;
+Nota notas[MAX_NOTAS];
+int contadorNotas = 0;
+
+// valida que la cedula tenga los 10 digitos
+bool idValida(const string &s) {
+    if (s.size() != 10) return false;
+    for (char c : s) if (c < '0' || c > '9') return false;
+    return true;
+}
+
+// busca si ya existe un estudiante con esa cedula
+bool existeEstudiante(const string &ced) {
+    for (int i = 0; i < contadorEstudiantes; i++)
+        if (estudiantes[i].cedula == ced)
+            return true;
+    return false;
+}
+
+// devuelve el indice del estudiante en el arreglo o -1 si no lo encuentra
+int indiceEstudiante(const string &ced) {
+    for (int i = 0; i < contadorEstudiantes; i++)
+        if (estudiantes[i].cedula == ced)
+            return i;
+    return -1;
+}
+
+// lee una linea no vacia de entrada
+string entradaNoVacia(const string &mensaje) {
+    string s;
+    do {
+        cout << mensaje;
+        getline(cin, s);
+    } while (s.empty());  // aseguro que no quede vacio
+    return s;
+}
+
+// lee un entero dentro de un rango, repitiendo hasta que sea valido
+int entradaEntero(const string &mensaje, int minV, int maxV) {
+    string s;
+    int v;
+    while (true) {
+        cout << mensaje;
+        getline(cin, s);
+        try {
+            v = stoi(s);            // convierte string a entero
+            if (v >= minV && v <= maxV)
+                return v;
+        } catch (...) {
+            // si el valor esta fuera de rango
+        }
+        cout << "Entrada invalida. Intente de nuevo." << endl;
+    }
+}
+
+// lee un double entre 0 y 100
+double entradaDouble(const string &mensaje) {
+    string s;
+    double v;
+    while (true) {
+        cout << mensaje;
+        getline(cin, s);
+        try {
+            v = stod(s);           // convierte string a double
+            if (v >= 0 && v <= 100)
+                return v;
+        } catch (...) {}
+        cout << "Nota invalida. Debe estar entre 0 y 100." << endl;
+    }
+}
+
+// validacion de el genero
+string entradaGenero() {
+    string g;
+    while (true) {
+        cout << "Genero (Femenino/Masculino/Otro): ";
+        getline(cin, g);
+        if (g == "Femenino" || g == "Masculino" || g == "Otro")
+            return g;
+    }
+}
+
+// guarda arreglo de estudiantes en el archivo
+void guardarEstudiantes() {
+    ofstream archivo("ESTUDIANTES.txt");  // abro/creo archivo
+    for (int i = 0; i < contadorEstudiantes; i++) {
+        // escribe cada campo separado por coma
+        archivo << estudiantes[i].cedula << ','
+                << estudiantes[i].nombre << ','
+                << estudiantes[i].provincia << ','
+                << estudiantes[i].canton << ','
+                << estudiantes[i].distrito << ','
+                << estudiantes[i].edad << ','
+                << estudiantes[i].genero << '\n';
+    }
+}
+
+// carga el registro de estudiantes del archivo al iniciar
+void cargarEstudiantes() {
+    ifstream archivo("ESTUDIANTES.txt");
+    if (!archivo) return;  // si no existe sale
+    string linea;
+    while (getline(archivo, linea)) {
+        size_t prev = 0, pos;
+        string campos[7];
+        int idx = 0;
+        // separa con find+substr hasta 6 comas
+        while ((pos = linea.find(',', prev)) != string::npos && idx < 6) {
+            campos[idx++] = linea.substr(prev, pos - prev);
+            prev = pos + 1;
+        }
+        campos[6] = linea.substr(prev);  // el resto es el genero
+        Estudiante e;
+        // asigno cada campo al struct
+        e.cedula = campos[0];
+        e.nombre = campos[1];
+        e.provincia = campos[2];
+        e.canton = campos[3];
+        e.distrito = campos[4];
+        e.edad = stoi(campos[5]);
+        e.genero = campos[6];
+        estudiantes[contadorEstudiantes++] = e;  // agrega al arreglo
+    }
+}
+
+// guarda arreglo de notas en archivo
+void guardarNotas() {
+    ofstream archivo("NOTAS.txt");
+    for (int i = 0; i < contadorNotas; i++) {
+        // concatena las notas y promedio
+        archivo << notas[i].cedula << ','
+                << notas[i].materia << ','
+                << notas[i].proy1 << ' ' << notas[i].proy2 << ' '
+                << notas[i].ensayo << ' ' << notas[i].foro << ' '
+                << notas[i].defensa << ' ' << notas[i].promedio << ','
+                << notas[i].estado << '\n';
+    }
+}
+
+// carga notas del archivo al iniciar
+void cargarNotas() {
+    ifstream archivo("NOTAS.txt");
+    if (!archivo) return;
+    string linea;
+    while (getline(archivo, linea)) {
+        size_t prev = 0, pos;
+        Nota n;
+        // cojo cedula y materia con find
+        pos = linea.find(',', prev);
+        n.cedula = linea.substr(prev, pos - prev);
+        prev = pos + 1;
+        pos = linea.find(',', prev);
+        n.materia = linea.substr(prev, pos - prev);
+        prev = pos + 1;
+        //  antes de ultima coma son numeros
+        pos = linea.find(',', prev);
+        string nums = linea.substr(prev, pos - prev);
+        n.estado = linea.substr(pos + 1);
+        //los 6 valores numericos separados por espacio
+        double val[6]; int j = 0;
+        size_t p2;
+        while ((p2 = nums.find(' ')) != string::npos && j < 5) {
+            val[j++] = stod(nums.substr(0, p2));
+            nums.erase(0, p2 + 1);
+        }
+        val[j++] = stod(nums);
+        // lo asigno a struct
+        n.proy1 = val[0]; n.proy2 = val[1];
+        n.ensayo = val[2]; n.foro = val[3];
+        n.defensa = val[4]; n.promedio = val[5];
+        notas[contadorNotas++] = n;
+    }
+}
+
+// calcula promedio ponderado y asigna estado segun escala
+void calcularPromedioYEstado(Nota &n) {
+    n.promedio = (n.proy1 * 0.01
+                + n.proy2 * 0.02
+                + n.ensayo * 0.03
+                + n.foro * 0.01
+                + n.defensa * 0.03) * 100;
+    if (n.promedio >= 70)      n.estado = "Aprobado";    // entre 70 y 100
+    else if (n.promedio >= 50) n.estado = "Reposicion"; // entre 50 y 69
+    else                        n.estado = "Reprobado"; // menos de 50
+}
+
+// registra un nuevo estudiante pidiendo todos los campos
+void registrarEstudiante() {
+    if (contadorEstudiantes >= MAX_ESTUDIANTES) return;
+    Estudiante e;
+    do { e.cedula = entradaNoVacia("Cedula (10 digitos): "); }
+    while (!idValida(e.cedula) || existeEstudiante(e.cedula));
+    e.nombre = entradaNoVacia("Nombre: ");
+    e.provincia = entradaNoVacia("Provincia: ");
+    e.canton = entradaNoVacia("Canton: ");
+    e.distrito = entradaNoVacia("Distrito: ");
+    e.edad = entradaEntero("Edad (18-100): ", 18, 100);
+    e.genero = entradaGenero();
+    estudiantes[contadorEstudiantes++] = e; // agrego al final
+    guardarEstudiantes();
+    cout << "Estudiante registrado." << endl;
+}
+
+// ingresa notas para un estudiante existente
+void ingresarNotas() {
+    if (contadorNotas >= MAX_NOTAS) return;
+    string ced = entradaNoVacia("Cedula: ");
+    if (!existeEstudiante(ced)) { cout << "No registrado." << endl; return; }
+    Nota n; n.cedula = ced;
+    n.materia = entradaNoVacia("Materia: ");
+    n.proy1 = entradaDouble("Proyecto 1: ");
+    n.proy2 = entradaDouble("Proyecto 2: ");
+    n.ensayo = entradaDouble("Ensayo: ");
+    n.foro = entradaDouble("Foro: ");
+    n.defensa = entradaDouble("Defensa: ");
+    calcularPromedioYEstado(n);  // aqui calculo el promedio y estado
+    notas[contadorNotas++] = n;
+    guardarNotas();
+    cout << "Notas guardadas." << endl;
+}
+
+// modifica datos de estudiante
+void modificarEstudiante() {
+    string ced = entradaNoVacia("Cedula a modificar: ");
+    int i = indiceEstudiante(ced);
+    if (i < 0) { cout << "No existe." << endl; return; }
+    estudiantes[i].edad = entradaEntero("Nueva edad (18-100): ", 18, 100);
+    estudiantes[i].provincia = entradaNoVacia("Provincia: ");
+    estudiantes[i].canton = entradaNoVacia("Canton: ");
+    estudiantes[i].distrito = entradaNoVacia("Distrito: ");
+    guardarEstudiantes();
+    cout << "Datos actualizados." << endl;
+}
+
+// modifica las notas de una materia
+void modificarNotas() {
+    string ced = entradaNoVacia("Cedula: ");
+    for (int i = 0; i < contadorNotas; i++) {
+        if (notas[i].cedula == ced) {
+            cout << "Reingresar notas para " << notas[i].materia << endl;
+            notas[i].proy1 = entradaDouble("Proyecto 1: ");
+            notas[i].proy2 = entradaDouble("Proyecto 2: ");
+            notas[i].ensayo = entradaDouble("Ensayo: ");
+            notas[i].foro = entradaDouble("Foro: ");
+            notas[i].defensa = entradaDouble("Defensa: ");
+            calcularPromedioYEstado(notas[i]); // recalculo promedio
+            guardarNotas();
+            cout << "Notas actualizadas." << endl;
+            return;
+        }
+    }
+    cout << "Notas no encontradas." << endl;
+}
+
+// elimina un estudiante y todas sus notas tras confirmacion
+void eliminarEstudiante() {
+    string ced = entradaNoVacia("Cedula a eliminar: ");
+    int i = indiceEstudiante(ced);
+    if (i < 0) { cout << "No existe." << endl; return; }
+    char c;
+    do { cout << "Confirma eliminar (S/N): "; cin >> c; cin.ignore(); } while (c != 'S' && c != 'N');
+    if (c == 'S') {
+        // desplaza a los estudiantes hacia atras sobre el eliminado
+        for (int j = i; j < contadorEstudiantes-1; j++) estudiantes[j] = estudiantes[j+1];
+        contadorEstudiantes--;
+        // elimino todas las notas asociadas a esa cedula
+        for (int k = 0; k < contadorNotas; ) {
+            if (notas[k].cedula == ced) {
+                for (int l = k; l < contadorNotas-1; l++) notas[l] = notas[l+1];
+                contadorNotas--;
+            } else k++;
+        }
+        guardarEstudiantes(); guardarNotas();
+        cout << "Estudiante eliminado." << endl;
+    }
+}
+
+// muestra todas las notas con su promedio y estado
+void reporte() {
+    cout << "\n--- REPORTE GENERAL ---" << endl;
+    for (int i = 0; i < contadorNotas; i++) {
+        int idx = indiceEstudiante(notas[i].cedula);
+        if (idx >= 0)
+            cout << "ID: " << estudiantes[idx].cedula
+                 << ", Nombre: " << estudiantes[idx].nombre
+                 << ", Edad: " << estudiantes[idx].edad
+                 << ", Materia: " << notas[i].materia
+                 << ", Promedio: " << notas[i].promedio
+                 << ", Estado: " << notas[i].estado << endl;
+    }
+}
+
+int main() {
+    cargarEstudiantes();  // cargo datos al iniciar
+    cargarNotas();        // cargo notas al iniciar
+    int opcion;
+    do {
+        cout << "\nMENU" << endl;
+        cout << "1) Registrar estudiante" << endl;
+        cout << "2) Ingresar notas" << endl;
+        cout << "3) Modificar estudiante" << endl;
+        cout << "4) Modificar notas" << endl;
+        cout << "5) Eliminar estudiante" << endl;
+        cout << "6) Reporte" << endl;
+        cout << "7) Salir" << endl;
+        cout << "Seleccione: "; cin >> opcion; cin.ignore();
+        switch(opcion) {
+            case 1: registrarEstudiante(); break;
+            case 2: ingresarNotas(); break;
+            case 3: modificarEstudiante(); break;
+            case 4: modificarNotas(); break;
+            case 5: eliminarEstudiante(); break;
+            case 6: reporte(); break;
+            case 7: cout << "Saliendo..." << endl; break;
+            default: cout << "Opcion invalida." << endl;
+        }
+    } while (opcion != 7);
+    return 0;
+}
+
